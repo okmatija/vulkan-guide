@@ -44,6 +44,7 @@ void VulkanEngine::init()
     init_swapchain();
     init_commands();
     init_sync_structures();
+    init_descriptors();
 
     // everything went fine
     _isInitialized = true;
@@ -370,6 +371,45 @@ void VulkanEngine::init_sync_structures() {
         VK_CHECK(vkCreateSemaphore(_device, &semaphore_create_info, nullptr, &_frames[i]._render_semaphore));
         VK_CHECK(vkCreateSemaphore(_device, &semaphore_create_info, nullptr, &_frames[i]._swapchain_semaphore));
     }
+}
+
+void VulkanEngine::init_descriptors() {
+    // Create a descriptor pool holiding 10 sets with 1 image each
+    std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}
+    };
+    global_descriptor_allocator.init_pool(_device, 10, sizes);
+
+    // Make the descriptor set layout for our compute draw
+    {
+        DescriptorLayoutBuilder builder;
+        builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        _draw_image_descriptor_layout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
+    }
+
+    // Allocate a descriptor set for our draw image
+    _draw_image_descriptors = global_descriptor_allocator.allocate(_device, _draw_image_descriptor_layout);
+
+    VkDescriptorImageInfo image_info;
+    image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    image_info.imageView = _draw_image.imageView;
+
+    VkWriteDescriptorSet draw_image_write = {};
+    draw_image_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    draw_image_write.pNext = nullptr;
+    draw_image_write.dstBinding = 0;
+    draw_image_write.dstSet = _draw_image_descriptors;
+    draw_image_write.descriptorCount = 1;
+    draw_image_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    draw_image_write.pImageInfo = &image_info;
+
+    vkUpdateDescriptorSets(_device, 1, &draw_image_write, 0, nullptr);
+
+    // Make sure both the descriptor allocator and the new layout get cleaned up
+    _main_deletion_queue.push_function([&]() {
+        global_descriptor_allocator.destroy_pool(_device);
+        vkDestroyDescriptorSetLayout(_device, _draw_image_descriptor_layout, nullptr);
+    });
 }
 
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height) {

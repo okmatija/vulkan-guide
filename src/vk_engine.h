@@ -7,8 +7,9 @@
 #include <deque>
 #include <functional>
 
-#include <vk_types.h>
+#include <vk_descriptors.h>
 #include <vk_initializers.h>
+#include <vk_types.h>
 
 #include "vk_mem_alloc.h"
 #include "VkBootstrap.h"
@@ -22,7 +23,7 @@ struct DeletionQueue {
 	// }
 
 	void push_function(std::function<void()>&& function) {
-		deletors.push_back(function); // FIXME(okmatija) this was push_back without std::move in the original
+		deletors.push_back(function);
 	}
 
 	void flush() {
@@ -83,6 +84,9 @@ public:
 
 	FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; }
 
+	DescriptorAllocator global_descriptor_allocator;
+	VkDescriptorSet _draw_image_descriptors;
+	VkDescriptorSetLayout _draw_image_descriptor_layout;
 
 private:
 
@@ -106,6 +110,7 @@ private:
 	void init_swapchain();
 	void init_commands();
 	void init_sync_structures();
+	void init_descriptors();
 
 	void draw_background(VkCommandBuffer cmd);
 
