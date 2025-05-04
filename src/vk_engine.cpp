@@ -1,11 +1,11 @@
-﻿//> includes
-#include "vk_engine.h"
+﻿#include "vk_engine.h"
 
 #include <SDL.h>
 #include <SDL_vulkan.h>
 
 #include <vk_initializers.h>
 #include <vk_images.h>
+#include <vk_pipelines.h>
 #include <vk_types.h>
 
 #define VMA_IMPLEMENTATION
@@ -13,9 +13,7 @@
 
 #include <chrono>
 #include <thread>
-//< includes
 
-//> init
 constexpr bool bUseValidationLayers = true;
 
 VulkanEngine* loadedEngine = nullptr;
@@ -23,15 +21,13 @@ VulkanEngine* loadedEngine = nullptr;
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
 void VulkanEngine::init()
 {
-    // only one engine initialization is allowed with the application.
+    // Only one engine initialization is allowed.
     assert(loadedEngine == nullptr);
     loadedEngine = this;
 
-    // We initialize SDL and create a window with it.
+    // Initialize SDL and create a window
     SDL_Init(SDL_INIT_VIDEO);
-
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
-
     _window = SDL_CreateWindow(
         "Vulkan Engine",
         SDL_WINDOWPOS_UNDEFINED,
@@ -45,13 +41,54 @@ void VulkanEngine::init()
     init_commands();
     init_sync_structures();
     init_descriptors();
+    init_pipelines();
 
-    // everything went fine
     _isInitialized = true;
 }
-//< init
 
-//> extras
+void VulkanEngine::init_pipelines() {
+    init_background_pipelines();
+}
+
+void VulkanEngine::init_background_pipelines() {
+    VkPipelineLayoutCreateInfo compute_layout{};
+    compute_layout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    compute_layout.pNext = nullptr;
+    compute_layout.pSetLayouts = &_draw_image_descriptor_layout;
+    compute_layout.setLayoutCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(_device, &compute_layout, nullptr, &_gradient_pipeline_layout));
+
+    // Note: shader modules are only needed when building the pipeline so they are not members of VulkanEngine
+    VkShaderModule compute_draw_shader;
+    if (!vkutil::load_shader_module("../../shaders/gradient.comp.spv", _device, &compute_draw_shader)) {
+        fmt::print("Error when building the compute shader\n");
+    }
+
+    VkPipelineShaderStageCreateInfo stage_info{};
+    stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stage_info.pNext = nullptr;
+    stage_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stage_info.module = compute_draw_shader;
+    // Note: You can have multiple compute shader variants in the same shader file by using different entry point functions and setting them up here
+    stage_info.pName = "main";
+
+    VkComputePipelineCreateInfo compute_pipeline_create_info{};
+    compute_pipeline_create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    compute_pipeline_create_info.pNext = nullptr;
+    compute_pipeline_create_info.layout = _gradient_pipeline_layout;
+    compute_pipeline_create_info.stage = stage_info;
+
+    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &compute_pipeline_create_info, nullptr, &_gradient_pipeline));
+
+    // Cleanup
+    vkDestroyShaderModule(_device, compute_draw_shader, nullptr);
+    _main_deletion_queue.push_function([&]() {
+        vkDestroyPipelineLayout(_device, _gradient_pipeline_layout, nullptr);
+        vkDestroyPipeline(_device, _gradient_pipeline, nullptr);
+    });
+}
+
 void VulkanEngine::cleanup()
 {
     if (_isInitialized) {
@@ -92,7 +129,11 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd) {
 
     VkImageSubresourceRange clear_range = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
-    vkCmdClearColorImage(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
+    // vkCmdClearColorImage(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradient_pipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradient_pipeline_layout, 0, 1, &_draw_image_descriptors, 0, nullptr);
+    vkCmdDispatch(cmd, std::ceil(_draw_extent.width / 16.0), std::ceil(_draw_extent.height / 16.0), 1);
 }
 
 void VulkanEngine::draw()

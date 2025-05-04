@@ -88,6 +88,9 @@ public:
 	VkDescriptorSet _draw_image_descriptors;
 	VkDescriptorSetLayout _draw_image_descriptor_layout;
 
+	VkPipeline _gradient_pipeline;
+	VkPipelineLayout _gradient_pipeline_layout;
+
 private:
 
 	FrameData _frames[FRAME_OVERLAP];
@@ -111,6 +114,8 @@ private:
 	void init_commands();
 	void init_sync_structures();
 	void init_descriptors();
+	void init_pipelines();
+	void init_background_pipelines();
 
 	void draw_background(VkCommandBuffer cmd);
 
