@@ -91,6 +91,12 @@ public:
 	VkPipeline _gradient_pipeline;
 	VkPipelineLayout _gradient_pipeline_layout;
 
+	VkFence _immediate_fence;
+	VkCommandBuffer _immediate_command_buffer;
+	VkCommandPool _immediate_command_pool;
+
+	void immediate_submit(std::function<void(VkCommandBuffer)>&& function);
+
 private:
 
 	FrameData _frames[FRAME_OVERLAP];
@@ -116,7 +122,9 @@ private:
 	void init_descriptors();
 	void init_pipelines();
 	void init_background_pipelines();
+	void init_imgui();
 
+	void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);
 	void draw_background(VkCommandBuffer cmd);
 
 	void create_swapchain(uint32_t width, uint32_t height);
