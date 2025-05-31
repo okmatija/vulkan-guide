@@ -44,6 +44,22 @@ struct FrameData {
 	DeletionQueue _deletion_queue;
 };
 
+struct ComputePushConstants {
+	glm::vec4 data1;
+	glm::vec4 data2;
+	glm::vec4 data3;
+	glm::vec4 data4;
+};
+
+struct ComputeEffect {
+	const char* name;
+
+	VkPipeline pipeline;
+	VkPipelineLayout layout;
+
+	ComputePushConstants data;
+};
+
 constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
@@ -88,7 +104,7 @@ public:
 	VkDescriptorSet _draw_image_descriptors;
 	VkDescriptorSetLayout _draw_image_descriptor_layout;
 
-	VkPipeline _gradient_pipeline;
+	// VkPipeline _gradient_pipeline; // Note(Matija): Now this is stored in ComputeEffect
 	VkPipelineLayout _gradient_pipeline_layout;
 
 	VkFence _immediate_fence;
@@ -96,6 +112,9 @@ public:
 	VkCommandPool _immediate_command_pool;
 
 	void immediate_submit(std::function<void(VkCommandBuffer)>&& function);
+
+	std::vector<ComputeEffect> background_effects;
+	int current_background_effect{0};
 
 private:
 
@@ -129,5 +148,6 @@ private:
 
 	void create_swapchain(uint32_t width, uint32_t height);
 	void destroy_swapchain();
+
 };
 //< intro
