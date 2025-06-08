@@ -496,7 +496,7 @@ void VulkanEngine::init_sync_structures() {
 }
 
 void VulkanEngine::init_descriptors() {
-    // Create a descriptor pool holiding 10 sets with 1 image each
+    // Create a descriptor pool holding 10 sets with 1 image each
     std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}
     };
