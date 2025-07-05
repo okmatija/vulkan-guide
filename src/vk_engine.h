@@ -106,6 +106,8 @@ public:
 
 	// VkPipeline _gradient_pipeline; // Note(Matija): Now this is stored in ComputeEffect
 	VkPipelineLayout _gradient_pipeline_layout;
+	VkPipelineLayout _triangle_pipeline_layout;
+	VkPipeline _triangle_pipeline;
 
 	VkFence _immediate_fence;
 	VkCommandBuffer _immediate_command_buffer;
@@ -140,10 +142,12 @@ private:
 	void init_sync_structures();
 	void init_descriptors();
 	void init_pipelines();
+	void init_triangle_pipeline();
 	void init_background_pipelines();
 	void init_imgui();
 
 	void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);
+	void draw_geometry(VkCommandBuffer cmd);
 	void draw_background(VkCommandBuffer cmd);
 
 	void create_swapchain(uint32_t width, uint32_t height);
